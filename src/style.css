@@ -1,0 +1,5 @@
+@import 'tailwindcss';
+
+:root {
+  @apply h-screen bg-neutral-800 text-neutral-300 scheme-dark;
+}
