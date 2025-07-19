@@ -6,3 +6,5 @@
 
 - 区分手动保存还是 aeb 事件触发保存
 - 查看事件地点位置
+
+![preview](https://github.com/user-attachments/assets/43e665f2-759b-431d-beac-5d27fc1a2526)
