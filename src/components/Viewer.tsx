@@ -128,40 +128,36 @@ export function Viewer({ clip, footage }: Props) {
   const [viewType, setviewType] = useState<ViewType>('grid');
 
   return (
-    <div className="flex flex-1 flex-col items-center">
-      <div className="relative flex-1 overflow-hidden">
-        <div className="flex h-1/2">
-          <Player
-            videoRef={frontPreviewRef}
-            url={segment.front}
-            playing={playing}
-            playbackRate={playbackRate}
-            full={viewType === 'front'}
-          />
-          <Player
-            videoRef={backPreviewRef}
-            url={segment.back}
-            playing={playing}
-            playbackRate={playbackRate}
-            full={viewType === 'back'}
-          />
-        </div>
-        <div className="flex h-1/2">
-          <Player
-            videoRef={leftPreviewRef}
-            url={segment.left}
-            playing={playing}
-            playbackRate={playbackRate}
-            full={viewType === 'left'}
-          />
-          <Player
-            videoRef={rightPreviewRef}
-            url={segment.right}
-            playing={playing}
-            playbackRate={playbackRate}
-            full={viewType === 'right'}
-          />
-        </div>
+    <div className="flex flex-1 flex-col flex-wrap items-center">
+      <div className="relative grid flex-1 grid-flow-col grid-rows-2 overflow-hidden">
+        <Player
+          videoRef={frontPreviewRef}
+          url={segment.front}
+          playing={playing}
+          playbackRate={playbackRate}
+          full={viewType === 'front'}
+        />
+        <Player
+          videoRef={leftPreviewRef}
+          url={segment.left}
+          playing={playing}
+          playbackRate={playbackRate}
+          full={viewType === 'left'}
+        />
+        <Player
+          videoRef={backPreviewRef}
+          url={segment.back}
+          playing={playing}
+          playbackRate={playbackRate}
+          full={viewType === 'back'}
+        />
+        <Player
+          videoRef={rightPreviewRef}
+          url={segment.right}
+          playing={playing}
+          playbackRate={playbackRate}
+          full={viewType === 'right'}
+        />
 
         {/* 视频信息显示 */}
         <div className="absolute top-5 left-5 z-20 rounded-lg bg-neutral-800/70 px-4 py-2">

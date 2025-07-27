@@ -24,14 +24,14 @@ export function Progress({ value = 1, max = 1, mark, onChange }: Props) {
         handleClick(e.currentTarget.clientWidth, e.nativeEvent.offsetX);
       }}
     >
-      <div className="relative h-1 overflow-hidden rounded-full bg-neutral-400/60 group-hover:bg-neutral-400/80">
+      <div className="relative h-1 rounded-full bg-neutral-400/60 group-hover:bg-neutral-400/80">
         <div
-          className="h-full bg-neutral-200 group-hover:bg-white"
+          className="h-full rounded-full bg-neutral-200 group-hover:bg-white"
           style={{ width: `${percent}%` }}
         ></div>
         {markPercent && (
           <div
-            className="absolute top-0 bottom-0 w-2 bg-red-700"
+            className="absolute -top-1 -bottom-1 w-1 bg-red-700"
             style={{ left: `${markPercent}%` }}
           ></div>
         )}

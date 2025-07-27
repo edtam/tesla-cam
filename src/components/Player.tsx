@@ -70,7 +70,7 @@ export function Player({
     <div
       className={clsx(
         'aspect-4/3 h-full',
-        full ? 'absolute top-0 z-10' : 'relative',
+        full ? 'absolute top-0 left-0 z-10' : 'relative',
       )}
     >
       {url ? (
