@@ -1,6 +1,8 @@
+export type ClipType = 'recent' | 'saved' | 'sentry';
+
 export type CamClip = {
   name: string;
-  type?: 'recent' | 'saved' | 'sentry';
+  type?: ClipType;
   saveType?: 'aeb' | 'manual';
   thumb?: File;
   event?: CamClipEvent;
