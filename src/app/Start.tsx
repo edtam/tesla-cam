@@ -39,30 +39,47 @@ export function Start({ onChange }: Props) {
   };
 
   return (
-    <div className="p-10">
-      <h2 className="py-4 text-2xl">
+    <div className="flex flex-col gap-8 p-10">
+      <h2 className="text-2xl">
         特斯拉行车记录仪查看器 - Tesla Dashcam Viewer
       </h2>
 
       {supported ? (
-        <div>
-          <p className="text-neutral-400">
-            请选择 TeslaCam、RecentClips、SavedClips、SentryClips 目录
-          </p>
-          <label>
-            <input
-              hidden
-              ref={inputEl}
-              type="file"
-              multiple
-              onChange={(event) => {
-                handleFiles(event.target.files);
-              }}
-            />
-            <a className="cursor-pointer underline">选择文件夹</a>
-          </label>
-          <p className="text-cyan-400">{errMsg}</p>
-        </div>
+        <>
+          <div>
+            <p className="text-neutral-400">
+              请选择 TeslaCam、RecentClips、SavedClips、SentryClips 目录
+            </p>
+            <label>
+              <input
+                hidden
+                ref={inputEl}
+                type="file"
+                multiple
+                onChange={(event) => {
+                  handleFiles(event.target.files);
+                }}
+              />
+              <a className="cursor-pointer underline">选择文件夹</a>
+            </label>
+            <p className="text-cyan-400">{errMsg}</p>
+          </div>
+
+          <div className="text-sm text-neutral-400">
+            <p>行车记录仪文件的读取分析查看均在浏览器本地运行</p>
+            <p>有任何疑问或建议可通过 github issue 与我联系</p>
+            <p>
+              项目源码：
+              <a
+                href="https://github.com/edtam/tesla-cam"
+                target="_blank"
+                className="cursor-pointer underline"
+              >
+                Github
+              </a>
+            </p>
+          </div>
+        </>
       ) : (
         <p className="text-neutral-400">
           当前浏览器不支持文件夹读取功能，请使用最新版 Chrome 浏览器访问
