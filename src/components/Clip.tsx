@@ -27,7 +27,9 @@ export function Clip({ item, active, onClick }: Props) {
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <ClipType clip={item} />
-          <div className="text-neutral-400">{item.event?.city}</div>
+          <div className="text-neutral-400">
+            {[item.event?.city, item.event?.street].filter(Boolean).join(' ')}
+          </div>
         </div>
         <div>{datetime}</div>
       </div>

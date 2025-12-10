@@ -1,4 +1,7 @@
+import dayjs from 'dayjs';
+
 import { getVideoDuration } from './getVideoDuration';
+import { parseTime } from './parseTime';
 import type { CamFootage, CamName, CamSegment } from './types';
 
 export async function genFootage(files: File[]): Promise<CamFootage> {
@@ -42,6 +45,10 @@ export async function genFootage(files: File[]): Promise<CamFootage> {
   }
 
   const segments = Object.values(map);
+  segments.sort(
+    (a, b) =>
+      dayjs(parseTime(a.name)).valueOf() - dayjs(parseTime(b.name)).valueOf(),
+  );
 
   // 提前统计片段时长，方便进度跳转
   let duration = 0;

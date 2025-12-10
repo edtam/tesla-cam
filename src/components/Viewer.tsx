@@ -27,6 +27,8 @@ type Props = {
   footage: CamFootage;
 };
 
+const MAX_EXPORT_SECONDS = 60;
+
 export function Viewer({ clip, footage }: Props) {
   const backRef = useRef<HTMLVideoElement>(null);
   const frontRef = useRef<HTMLVideoElement>(null);
@@ -87,8 +89,29 @@ export function Viewer({ clip, footage }: Props) {
   const formatTime = dayjs(parseTime(segment.name))
     .add(segmentPlayedSeconds, 'second')
     .format('YYYY年MM月DD日 ddd HH:mm:ss');
+  const locationText = useMemo(() => {
+    if (!clip.event) {
+      return '无位置信息';
+    }
+
+    const { city, street, est_lat, est_lon } = clip.event;
+    const locationName = [city, street].filter(Boolean).join(' ');
+    const coord = [est_lat, est_lon].filter(Boolean).join(', ');
+
+    if (locationName && coord) {
+      return `${locationName}（${coord}）`;
+    }
+    if (locationName) {
+      return locationName;
+    }
+    return coord || '无位置信息';
+  }, [clip.event]);
   const clipPlayedSeconds = segment.startSeconds + segmentPlayedSeconds;
   const eventSeconds = calcEventSeconds(clip, footage);
+  const overlayRef = useRef({ time: formatTime, location: locationText });
+  useEffect(() => {
+    overlayRef.current = { time: formatTime, location: locationText };
+  }, [formatTime, locationText]);
 
   // 播放控制
   const [playing, setPlaying] = useState(true);
@@ -111,6 +134,38 @@ export function Viewer({ clip, footage }: Props) {
       setSeekTask(res);
     }
   };
+  const handleKeyboardControl = useCallback(
+    (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && ['INPUT', 'TEXTAREA'].includes(target.tagName)) {
+        return;
+      }
+
+      if (event.code === 'Space') {
+        event.preventDefault();
+        setPlaying((p) => !p);
+        return;
+      }
+
+      if (event.code === 'ArrowLeft') {
+        event.preventDefault();
+        jump(-5);
+        return;
+      }
+
+      if (event.code === 'ArrowRight') {
+        event.preventDefault();
+        jump(5);
+      }
+    },
+    [jump],
+  );
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyboardControl);
+    return () => {
+      window.removeEventListener('keydown', handleKeyboardControl);
+    };
+  }, [handleKeyboardControl]);
   // 片段跳转完成，跳转到指定时间
   const [seekTask, setSeekTask] = useState<SeekInfo>();
   useEffect(() => {
@@ -126,6 +181,256 @@ export function Viewer({ clip, footage }: Props) {
   }, [players, seekTask, states]);
 
   const [viewType, setviewType] = useState<ViewType>('grid');
+  const [exporting, setExporting] = useState(false);
+  const [exportIn, setExportIn] = useState<number>();
+  const [exportOut, setExportOut] = useState<number>();
+
+  const exportSelectionSeconds = useMemo(() => {
+    if (exportIn === undefined || exportOut === undefined) {
+      return 0;
+    }
+    if (exportOut <= exportIn) {
+      return 0;
+    }
+    return Math.min(exportOut - exportIn, footage.duration);
+  }, [exportIn, exportOut, footage.duration]);
+
+  const markExportIn = useCallback(() => {
+    setExportIn(Math.min(clipPlayedSeconds, footage.duration));
+  }, [clipPlayedSeconds, footage.duration]);
+
+  const markExportOut = useCallback(() => {
+    setExportOut(Math.min(clipPlayedSeconds, footage.duration));
+  }, [clipPlayedSeconds, footage.duration]);
+
+  const formatExportPoint = useCallback(
+    (seconds?: number) =>
+      seconds === undefined
+        ? '--:--'
+        : dayjs('1970-01-01T00:00:00')
+            .add(seconds, 'second')
+            .format('HH:mm:ss'),
+    [],
+  );
+
+  const exportableSeconds = useMemo(
+    () => {
+      if (exportSelectionSeconds > 0) {
+        return Math.min(MAX_EXPORT_SECONDS, exportSelectionSeconds);
+      }
+
+      return Math.min(
+        MAX_EXPORT_SECONDS,
+        Math.max(0, footage.duration - clipPlayedSeconds),
+      );
+    },
+    [
+      clipPlayedSeconds,
+      exportSelectionSeconds,
+      footage.duration,
+    ],
+  );
+
+  const drawFrame = useCallback(
+    (
+      ctx: CanvasRenderingContext2D,
+      width: number,
+      height: number,
+      isGrid: boolean,
+    ) => {
+      const drawVideo = (
+        video: HTMLVideoElement | null,
+        x: number,
+        y: number,
+        w: number,
+        h: number,
+      ) => {
+        if (!video || video.readyState < 2) {
+          return;
+        }
+        ctx.drawImage(video, x, y, w, h);
+      };
+
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, width, height);
+
+      if (isGrid) {
+        const halfW = width / 2;
+        const halfH = height / 2;
+        drawVideo(frontPreviewRef.current, 0, 0, halfW, halfH);
+        drawVideo(leftPreviewRef.current, 0, halfH, halfW, halfH);
+        drawVideo(backPreviewRef.current, halfW, 0, halfW, halfH);
+        drawVideo(rightPreviewRef.current, halfW, halfH, halfW, halfH);
+      } else {
+        const map: Record<ViewType, HTMLVideoElement | null> = {
+          grid: null,
+          front: frontRef.current,
+          back: backRef.current,
+          left: leftRef.current,
+          right: rightRef.current,
+        };
+        drawVideo(map[viewType], 0, 0, width, height);
+      }
+
+      const { time, location } = overlayRef.current;
+      const padding = 20;
+      const boxWidth = width - padding * 2;
+      const boxHeight = 96;
+      ctx.fillStyle = 'rgba(38,38,38,0.7)';
+      ctx.fillRect(padding, padding, boxWidth, boxHeight);
+      ctx.fillStyle = 'white';
+      ctx.font = '32px sans-serif';
+      ctx.fillText(time, padding + 16, padding + 40);
+      ctx.font = '22px sans-serif';
+      ctx.fillText(location, padding + 16, padding + 72);
+    },
+    [
+      backPreviewRef,
+      backRef,
+      frontPreviewRef,
+      frontRef,
+      leftPreviewRef,
+      leftRef,
+      overlayRef,
+      rightPreviewRef,
+      rightRef,
+      viewType,
+    ],
+  );
+
+  const exportScreenshot = useCallback(() => {
+    const canvas = document.createElement('canvas');
+    const isGrid = viewType === 'grid';
+    const width = 1280;
+    const height = isGrid ? 960 : 720;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+
+    drawFrame(ctx, width, height, isGrid);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${clip.name}-${viewType}.jpg`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      'image/jpeg',
+      0.92,
+    );
+  }, [clip.name, drawFrame, viewType]);
+
+  const exportCurrentView = useCallback(() => {
+    if (exporting) {
+      return;
+    }
+    if (exportableSeconds <= 0) {
+      return;
+    }
+
+    const exportStartSeconds =
+      exportSelectionSeconds > 0 && exportIn !== undefined
+        ? exportIn
+        : clipPlayedSeconds;
+    const seekInfo = calcSeekInfo(footage, exportStartSeconds);
+    if (!seekInfo) {
+      return;
+    }
+
+    setSegmentIndex(seekInfo.index);
+    players.forEach((i) => {
+      if (i.current) {
+        i.current.currentTime = seekInfo.seconds;
+      }
+    });
+
+    const exportStartTimeText = dayjs(
+      parseTime(footage.segments[seekInfo.index].name),
+    )
+      .add(seekInfo.seconds, 'second')
+      .format('YYYY年MM月DD日 ddd HH:mm:ss');
+    overlayRef.current = { time: exportStartTimeText, location: locationText };
+
+    const canvas = document.createElement('canvas');
+    const isGrid = viewType === 'grid';
+    const width = 1280;
+    const height = isGrid ? 960 : 720;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+
+    const stream = canvas.captureStream(30);
+    const mimeCandidates = [
+      'video/mp4;codecs=H264',
+      'video/mp4',
+      'video/webm;codecs=vp9',
+      'video/webm',
+    ];
+    const mimeType = mimeCandidates.find((m) => MediaRecorder.isTypeSupported(m));
+    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    const chunks: BlobPart[] = [];
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        chunks.push(event.data);
+      }
+    };
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, { type: mimeType || 'video/mp4' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const ext = mimeType?.includes('mp4') || !mimeType ? 'mp4' : 'webm';
+      a.download = `${clip.name}-${viewType}.${ext}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setExporting(false);
+    };
+
+    setExporting(true);
+    recorder.start();
+    const start = performance.now();
+    const step = () => {
+      const elapsed = (performance.now() - start) / 1000;
+      drawFrame(ctx, width, height, isGrid);
+      if (elapsed < exportableSeconds) {
+        requestAnimationFrame(step);
+      } else {
+        recorder.stop();
+      }
+    };
+    step();
+  }, [
+    backPreviewRef,
+    backRef,
+    clip.name,
+    exportIn,
+    exportSelectionSeconds,
+    exporting,
+    footage.duration,
+    frontPreviewRef,
+    frontRef,
+    clipPlayedSeconds,
+    leftPreviewRef,
+    leftRef,
+    overlayRef,
+    rightPreviewRef,
+    rightRef,
+    exportableSeconds,
+    footage.segments,
+    locationText,
+    viewType,
+  ]);
 
   return (
     <div className="flex flex-1 flex-col flex-wrap items-center">
@@ -162,10 +467,11 @@ export function Viewer({ clip, footage }: Props) {
         {/* 视频信息显示 */}
         <div className="absolute top-5 left-5 z-20 rounded-lg bg-neutral-800/70 px-4 py-2">
           <div className="text-lg">{formatTime}</div>
+          <div className="text-sm text-neutral-200">{locationText}</div>
         </div>
 
-        {/* 地点查看 */}
-        <div className="absolute top-5 right-5 z-20">
+        {/* 地点查看与导出 */}
+        <div className="absolute top-5 right-5 z-20 flex flex-col gap-3 text-right">
           {clip.event && (
             <a href={genLocationUrl(clip.event)} target="_blank">
               <button className="cursor-pointer rounded-lg bg-emerald-800 px-4 py-2 hover:bg-emerald-700">
@@ -173,6 +479,39 @@ export function Viewer({ clip, footage }: Props) {
               </button>
             </a>
           )}
+          <div className="flex gap-3 self-end">
+            <button
+              className="cursor-pointer rounded-lg bg-neutral-700 px-4 py-2 hover:bg-neutral-600"
+              onClick={markExportIn}
+            >
+              设置入点
+            </button>
+            <button
+              className="cursor-pointer rounded-lg bg-neutral-700 px-4 py-2 hover:bg-neutral-600"
+              onClick={markExportOut}
+            >
+              设置出点
+            </button>
+          </div>
+          <div className="text-sm text-neutral-200">
+            入点：{formatExportPoint(exportIn)} 出点：{formatExportPoint(exportOut)}
+            {exportableSeconds > 0 && `（${Math.round(exportableSeconds)}秒）`}
+          </div>
+          <div className="flex gap-3 self-end">
+            <button
+              className="cursor-pointer rounded-lg bg-neutral-700 px-4 py-2 hover:bg-neutral-600"
+              onClick={exportScreenshot}
+            >
+              导出截图
+            </button>
+            <button
+              className="cursor-pointer rounded-lg bg-blue-800 px-4 py-2 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={exportCurrentView}
+              disabled={exporting || exportableSeconds <= 0}
+            >
+              {exporting ? '导出中…' : `导出${exportableSeconds || 0}秒`}
+            </button>
+          </div>
         </div>
 
         {/* 底部操作栏 */}

@@ -12,6 +12,7 @@ export type CamClip = {
 export type CamClipEvent = {
   timestamp: string;
   city: string;
+  street?: string;
   est_lat: string;
   est_lon: string;
   reason: string;
